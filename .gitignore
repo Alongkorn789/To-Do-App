@@ -1,0 +1,37 @@
+# Dependencies (ไลบรารีและแพ็กเกจต่างๆ - ให้ระบบไปโหลดใหม่เองตอนรัน ไม่ต้องเก็บลง Git)
+node_modules/
+__pycache__/
+venv/
+env/
+
+# Environment Variables (ไฟล์เก็บความลับ เช่น API Keys หรือรหัสผ่านฐานข้อมูล ห้ามนำขึ้นเด็ดขาด!)
+.env
+.env.local
+.env.development
+.env.production
+
+# Build Outputs (ไฟล์ที่เกิดจากการ Build โค้ด)
+build/
+dist/
+.next/
+out/
+
+# OS Generated Files (ไฟล์ระบบที่เครื่องคอมพิวเตอร์สร้างขึ้นมาเอง)
+.DS_Store
+Thumbs.db
+
+# IDE and Editor Files (ไฟล์ตั้งค่าส่วนตัวของโปรแกรมเขียนโค้ด)
+.vscode/
+.idea/
+.antigravity/
+
+# Logs & Cache (ไฟล์บันทึกการทำงานและแคชของระบบพัฒนา)
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.eslintcache
+.parcel-cache
+.vite/
+vite.config.js.timestamp-*
