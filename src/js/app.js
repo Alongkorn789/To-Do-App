@@ -393,7 +393,12 @@ const openTaskModal = (task = null) => {
     elements.taskIdInput.value = task.id;
     elements.taskTitleInput.value = task.title;
     elements.taskDescInput.value = task.description || '';
-    elements.taskDueDateInput.value = task.dueDate || '';
+    if (task.dueDate) {
+      const [year, month, day] = task.dueDate.split('-');
+      elements.taskDueDateInput.value = `${day}/${month}/${year}`;
+    } else {
+      elements.taskDueDateInput.value = '';
+    }
     elements.taskCategorySelect.value = task.categoryId || '';
     
     // Set checked radio button for priority
@@ -478,6 +483,24 @@ const registerEvents = () => {
   // Theme Toggle click
   elements.themeToggleBtn.addEventListener('click', toggleTheme);
 
+  // Auto-format slash on date input typing
+  elements.taskDueDateInput.addEventListener('input', (e) => {
+    let val = e.target.value.replace(/\D/g, ''); // keep only numbers
+    if (val.length > 8) val = val.substring(0, 8);
+    
+    let formatted = '';
+    if (val.length > 0) {
+      formatted += val.substring(0, 2);
+    }
+    if (val.length > 2) {
+      formatted += '/' + val.substring(2, 4);
+    }
+    if (val.length > 4) {
+      formatted += '/' + val.substring(4, 8);
+    }
+    e.target.value = formatted;
+  });
+
   // Quick Filter nav links click
   const quickFilters = document.querySelectorAll('.sidebar-nav .nav-section:first-child .nav-item');
   quickFilters.forEach(item => {
@@ -537,7 +560,36 @@ const registerEvents = () => {
     const id = elements.taskIdInput.value;
     const title = elements.taskTitleInput.value.trim();
     const description = elements.taskDescInput.value.trim();
-    const dueDate = elements.taskDueDateInput.value;
+    
+    let dueDate = '';
+    const rawDueDate = elements.taskDueDateInput.value.trim();
+    if (rawDueDate) {
+      const datePattern = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+      const match = rawDueDate.match(datePattern);
+      if (!match) {
+        alert('กรุณากรอกวันที่ให้ถูกต้องในรูปแบบ วัน/เดือน/ปี เช่น 29/05/2026');
+        return;
+      }
+      const [_, day, month, year] = match;
+      const parsedDay = parseInt(day, 10);
+      const parsedMonth = parseInt(month, 10);
+      const parsedYear = parseInt(year, 10);
+      
+      // Basic bounds check
+      if (parsedMonth < 1 || parsedMonth > 12 || parsedDay < 1 || parsedDay > 31) {
+        alert('กรุณากรอกวันและเดือนให้ถูกต้อง');
+        return;
+      }
+      
+      // Calendar validation
+      const testDate = new Date(parsedYear, parsedMonth - 1, parsedDay);
+      if (testDate.getFullYear() !== parsedYear || testDate.getMonth() !== parsedMonth - 1 || testDate.getDate() !== parsedDay) {
+        alert('วันที่ระบุไม่มีอยู่จริงในปฏิทิน กรุณาตรวจสอบอีกครั้ง');
+        return;
+      }
+      dueDate = `${year}-${month}-${day}`;
+    }
+
     const categoryId = elements.taskCategorySelect.value;
     
     const priorityRadio = elements.taskForm.querySelector('input[name="taskPriority"]:checked');
