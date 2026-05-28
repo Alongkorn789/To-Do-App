@@ -4,6 +4,10 @@ __pycache__/
 venv/
 env/
 
+# Pytest Cache
+.pytest_cache/
+*.pyc
+
 # Environment Variables (ไฟล์เก็บความลับ เช่น API Keys หรือรหัสผ่านฐานข้อมูล ห้ามนำขึ้นเด็ดขาด!)
 .env
 .env.local

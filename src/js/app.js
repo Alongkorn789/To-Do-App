@@ -117,8 +117,8 @@ const PRIORITY_WEIGHTS = {
    ========================================================================== */
 
 // Apply and setup Theme
-const initTheme = () => {
-  const savedTheme = storage.getTheme();
+const initTheme = async () => {
+  const savedTheme = await storage.getTheme();
   if (savedTheme === 'light') {
     elements.body.classList.add('light-mode');
   } else {
@@ -127,9 +127,9 @@ const initTheme = () => {
 };
 
 // Toggle Theme
-const toggleTheme = () => {
+const toggleTheme = async () => {
   const isLight = elements.body.classList.toggle('light-mode');
-  storage.setTheme(isLight ? 'light' : 'dark');
+  await storage.setTheme(isLight ? 'light' : 'dark');
 };
 
 // Setup mobile sidebar backdrop
@@ -153,8 +153,8 @@ const initMobileSidebar = () => {
 };
 
 // Populate the task category select dropdown inside modal
-const populateCategoryDropdown = () => {
-  const categories = storage.getCategories();
+const populateCategoryDropdown = async () => {
+  const categories = await storage.getCategories();
   let html = `<option value="">ไม่มีหมวดหมู่</option>`;
   categories.forEach(cat => {
     html += `<option value="${cat.id}">${cat.name}</option>`;
@@ -163,10 +163,7 @@ const populateCategoryDropdown = () => {
 };
 
 // Update Sidebar Categories list
-const renderCategories = () => {
-  const categories = storage.getCategories();
-  const tasks = storage.getTasks();
-  
+const renderCategories = (categories, tasks) => {
   let html = '';
   categories.forEach(cat => {
     // Count active (uncompleted) tasks in this category
@@ -213,8 +210,7 @@ const renderCategories = () => {
 };
 
 // Update all sidebar filter count badges and stats circles
-const updateBadgesAndStats = () => {
-  const tasks = storage.getTasks();
+const updateBadgesAndStats = (tasks) => {
   const todayStr = getLocalDateString();
 
   // Sidebar badges (active/uncompleted counts)
@@ -254,9 +250,20 @@ const updateBadgesAndStats = () => {
 };
 
 // Render Tasks List with Filters and Sorters applied
-const renderTasks = () => {
-  const tasks = storage.getTasks();
-  const categories = storage.getCategories();
+// Render Tasks List with Filters and Sorters applied
+const renderTasks = async () => {
+  let tasks = [];
+  let categories = [];
+  try {
+    tasks = await storage.getTasks();
+    categories = await storage.getCategories();
+  } catch (err) {
+    console.error("Failed to load tasks and categories:", err);
+    elements.taskList.style.display = 'none';
+    elements.emptyState.style.display = 'flex';
+    return;
+  }
+  
   const todayStr = getLocalDateString();
   
   // 1. Filter Tasks
@@ -372,12 +379,12 @@ const renderTasks = () => {
       `;
     });
     elements.taskList.innerHTML = html;
-    setupTaskCardEvents();
+    setupTaskCardEvents(filteredTasks);
   }
 
   // Sync category counts and statistics widgets
-  renderCategories();
-  updateBadgesAndStats();
+  renderCategories(categories, tasks);
+  updateBadgesAndStats(tasks);
 };
 
 /* ==========================================================================
@@ -385,8 +392,8 @@ const renderTasks = () => {
    ========================================================================== */
 
 // Open Task Modal (handles both Add and Edit)
-const openTaskModal = (task = null) => {
-  populateCategoryDropdown();
+const openTaskModal = async (task = null) => {
+  await populateCategoryDropdown();
   
   if (task) {
     elements.taskModalTitle.textContent = 'แก้ไขภารกิจ';
@@ -437,12 +444,12 @@ const closeCategoryModal = () => {
 };
 
 // Bind dynamic actions to rendered task cards
-const setupTaskCardEvents = () => {
+const setupTaskCardEvents = (tasks) => {
   const cards = elements.taskList.querySelectorAll('.task-card');
   
   cards.forEach(card => {
     const id = card.dataset.id;
-    const task = storage.getTasks().find(t => t.id === id);
+    const task = tasks.find(t => t.id === id);
 
     if (!task) return;
 
@@ -453,9 +460,13 @@ const setupTaskCardEvents = () => {
 
     // Checkbox toggles completed state
     const checkbox = card.querySelector('.task-complete-checkbox');
-    checkbox.addEventListener('change', () => {
-      storage.toggleTaskCompletion(id);
-      renderTasks();
+    checkbox.addEventListener('change', async () => {
+      try {
+        await storage.toggleTaskCompletion(id);
+        await renderTasks();
+      } catch (err) {
+        console.error("Failed to toggle completion:", err);
+      }
     });
 
     // Edit button click
@@ -466,10 +477,14 @@ const setupTaskCardEvents = () => {
 
     // Delete button click
     const deleteBtn = card.querySelector('.btn-delete-task');
-    deleteBtn.addEventListener('click', () => {
+    deleteBtn.addEventListener('click', async () => {
       if (confirm('คุณต้องการลบภารกิจนี้ใช่หรือไม่?')) {
-        storage.deleteTask(id);
-        renderTasks();
+        try {
+          await storage.deleteTask(id);
+          await renderTasks();
+        } catch (err) {
+          console.error("Failed to delete task:", err);
+        }
       }
     });
   });
@@ -554,7 +569,7 @@ const registerEvents = () => {
   elements.cancelCategoryModalBtn.addEventListener('click', closeCategoryModal);
 
   // Submit Task Form
-  elements.taskForm.addEventListener('submit', (e) => {
+  elements.taskForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const id = elements.taskIdInput.value;
@@ -597,21 +612,24 @@ const registerEvents = () => {
 
     if (!title) return;
 
-    storage.saveTask({
-      id: id || undefined,
-      title,
-      description,
-      dueDate,
-      categoryId,
-      priority
-    });
-
-    closeTaskModal();
-    renderTasks();
+    try {
+      await storage.saveTask({
+        id: id || undefined,
+        title,
+        description,
+        dueDate,
+        categoryId,
+        priority
+      });
+      closeTaskModal();
+      await renderTasks();
+    } catch (err) {
+      console.error("Failed to save task:", err);
+    }
   });
 
   // Submit Category Form
-  elements.categoryForm.addEventListener('submit', (e) => {
+  elements.categoryForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const name = elements.categoryNameInput.value.trim();
@@ -623,24 +641,27 @@ const registerEvents = () => {
 
     if (!name) return;
 
-    storage.saveCategory({
-      name,
-      icon,
-      color
-    });
-
-    closeCategoryModal();
-    renderTasks();
+    try {
+      await storage.saveCategory({
+        name,
+        icon,
+        color
+      });
+      closeCategoryModal();
+      await renderTasks();
+    } catch (err) {
+      console.error("Failed to save category:", err);
+    }
   });
 };
 
 // Boot App
-const initApp = () => {
-  storage.init();
-  initTheme();
+const initApp = async () => {
+  await storage.init();
+  await initTheme();
   initMobileSidebar();
   registerEvents();
-  renderTasks();
+  await renderTasks();
 };
 
 document.addEventListener('DOMContentLoaded', initApp);
