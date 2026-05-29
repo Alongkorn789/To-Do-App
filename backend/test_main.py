@@ -172,3 +172,95 @@ def test_delete_task():
     assert task_id in data["message"]
     
     mock_db.tasks.delete_one.assert_called_once_with({"_id": ObjectId(task_id)})
+
+
+# ==========================================================================
+# AI Smart Add Unit Tests
+# ==========================================================================
+
+@patch('main.client_ai.chat.completions.create')
+def test_smart_add_success(mock_create):
+    # Mock categories list from DB
+    mock_categories = [
+        {"_id": "cat-work", "name": "งาน (Work)", "icon": "work", "color": "violet"},
+        {"_id": "cat-personal", "name": "ส่วนตัว (Personal)", "icon": "person", "color": "blue"}
+    ]
+    mock_db.categories.find.return_value = mock_categories
+
+    # Mock the response from OpenAI client (standard JSON output)
+    mock_response = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = '{"title": "ส่งรายงานภาษี", "description": "รวบรวมไฟล์ส่งฝ่ายบัญชีด่วน", "categoryId": "cat-work", "dueDate": "2026-05-29", "priority": "high"}'
+    mock_response.choices = [mock_choice]
+    mock_create.return_value = mock_response
+
+    payload = {"text": "ส่งรายงานภาษีด่วน พรุ่งนี้"}
+    response = client.post("/api/smart-add", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "ส่งรายงานภาษี"
+    assert data["description"] == "รวบรวมไฟล์ส่งฝ่ายบัญชีด่วน"
+    assert data["categoryId"] == "cat-work"
+    assert data["dueDate"] == "2026-05-29"
+    assert data["priority"] == "high"
+
+    mock_create.assert_called_once()
+    mock_db.categories.find.assert_called_once()
+
+
+@patch('main.client_ai.chat.completions.create')
+def test_smart_add_success_markdown_wrapped(mock_create):
+    mock_db.categories.find.return_value = []
+
+    # Mock the response from OpenAI client (wrapped in markdown code block)
+    mock_response = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = '```json\n{"title": "ซื้อของเข้าบ้าน", "description": "ซื้อส้มและนม", "categoryId": "", "dueDate": "", "priority": "low"}\n```'
+    mock_response.choices = [mock_choice]
+    mock_create.return_value = mock_response
+
+    payload = {"text": "ซื้อของเข้าบ้าน พรุ่งนี้"}
+    response = client.post("/api/smart-add", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "ซื้อของเข้าบ้าน"
+    assert data["description"] == "ซื้อส้มและนม"
+    assert data["categoryId"] == ""
+    assert data["dueDate"] == ""
+    assert data["priority"] == "low"
+
+
+@patch('main.client_ai.chat.completions.create')
+def test_smart_add_fallback(mock_create):
+    mock_db.categories.find.return_value = []
+
+    # Case 1: Exception raised by client_ai (e.g. Connection Error, API error)
+    mock_create.side_effect = Exception("API connection timed out")
+
+    payload = {"text": "ส่งรายงานภาษีด่วน พรุ่งนี้"}
+    response = client.post("/api/smart-add", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "ส่งรายงานภาษีด่วน พรุ่งนี้"
+    assert "วิเคราะห์ล้มเหลว" in data["description"]
+    assert data["categoryId"] == ""
+    assert data["dueDate"] == ""
+    assert data["priority"] == "low"
+
+    # Case 2: Invalid JSON string returned
+    mock_create.side_effect = None
+    mock_response = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = "นี่ไม่ใช่ JSON แต่เป็นข้อความธรรมดา"
+    mock_response.choices = [mock_choice]
+    mock_create.return_value = mock_response
+
+    response = client.post("/api/smart-add", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "ส่งรายงานภาษีด่วน พรุ่งนี้"
+    assert "วิเคราะห์ล้มเหลว" in data["description"]
+

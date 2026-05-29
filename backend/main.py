@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -9,6 +10,14 @@ from pymongo import MongoClient
 from bson import ObjectId
 # pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
+# pyrefly: ignore [missing-import]
+from openai import OpenAI
+
+# Initialize OpenAI client with HuggingFace Endpoint
+client_ai = OpenAI(
+    base_url="https://router.huggingface.co/v1",
+    api_key=os.getenv("HF_TOKEN", "dummy_key")
+)
 
 # Load Environment Variables
 load_dotenv()
@@ -203,3 +212,88 @@ def update_theme(data: dict):
     theme = data.get("theme", "dark")
     db.settings.update_one({"key": "theme"}, {"$set": {"value": theme}}, upsert=True)
     return {"status": "success", "theme": theme}
+
+# AI SMART ADD ENDPOINT
+@app.post("/api/smart-add")
+def smart_add(payload: dict):
+    user_text = payload.get("text", "").strip()
+    
+    # Fallback response template
+    fallback_response = {
+        "title": user_text,
+        "description": "วิเคราะห์ล้มเหลว: ไม่สามารถประมวลผลด้วย AI ได้",
+        "categoryId": "",
+        "dueDate": "",
+        "priority": "low"
+    }
+    
+    if not user_text:
+        return {
+            "title": "",
+            "description": "",
+            "categoryId": "",
+            "dueDate": "",
+            "priority": "low"
+        }
+
+    try:
+        # Retrieve available categories to help model matching
+        categories = list(db.categories.find())
+        category_list_str = "\n".join([f"- ID: {str(c['_id'])}, Name: {c['name']}" for c in categories])
+        
+        system_prompt = f"""You are a productivity assistant for a Task Manager app.
+Analyze the user's unstructured input and extract the task details.
+You MUST respond with a single valid JSON object (and absolutely nothing else). Do not wrap the JSON in Markdown code blocks like ```json ... ```.
+
+Available categories in the system:
+{category_list_str}
+
+The JSON object must have exactly these keys:
+1. "title" (string): The main task name (short, concise).
+2. "description" (string): Additional details or context extracted (empty string if none).
+3. "categoryId" (string): The matching Category ID from the list above. If no category fits, use "".
+4. "dueDate" (string): The due date of the task in YYYY-MM-DD format. Check if the text references days like "พรุ่งนี้" (tomorrow), "วันนี้" (today), "วันจันทร์หน้า" (next Monday).
+   Today's date is: {datetime.now().strftime("%Y-%m-%d")}.
+   If no due date is mentioned, use "".
+5. "priority" (string): Choose from: "low", "medium", "high". Estimate based on urgency words. Default is "low".
+
+Example output:
+{{"title": "ส่งรายงานภาษี", "description": "รวบรวมไฟล์ส่งฝ่ายบัญชีด่วน", "categoryId": "cat-work", "dueDate": "2026-05-29", "priority": "high"}}
+"""
+        
+        # Call HuggingFace OpenAI API Router
+        response = client_ai.chat.completions.create(
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_text}
+            ],
+            temperature=0.1,
+            max_tokens=256
+        )
+        
+        content = response.choices[0].message.content.strip()
+        
+        # Clean markdown code blocks if the LLM wrapped it
+        if content.startswith("```"):
+            lines = content.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines[-1].startswith("```"):
+                lines = lines[:-1]
+            content = "\n".join(lines).strip()
+
+        parsed_json = json.loads(content)
+        
+        # Ensure essential keys are present, matching fallback otherwise
+        return {
+            "title": parsed_json.get("title", user_text) or user_text,
+            "description": parsed_json.get("description", ""),
+            "categoryId": parsed_json.get("categoryId", ""),
+            "dueDate": parsed_json.get("dueDate", ""),
+            "priority": parsed_json.get("priority", "low")
+        }
+        
+    except Exception as e:
+        print(f"Error in smart_add: {e}")
+        return fallback_response
