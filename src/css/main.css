@@ -1380,3 +1380,131 @@ body.light-mode .meta-badge.category-badge {
     padding-top: 8px;
   }
 }
+
+/* ==========================================================================
+   AI Smart Add & Toast Notifications Styling
+   ========================================================================== */
+
+/* AI Button styling */
+.btn-ai {
+  border-color: var(--color-violet) !important;
+  color: var(--color-violet) !important;
+  background-color: rgba(139, 92, 246, 0.05) !important;
+  transition: all var(--transition-fast);
+}
+
+.btn-ai:hover {
+  background-color: rgba(139, 92, 246, 0.15) !important;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15) !important;
+}
+
+/* Spinner and loading state */
+.ai-loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 0;
+  margin-top: 12px;
+  background-color: rgba(139, 92, 246, 0.03);
+  border: 1px dashed rgba(139, 92, 246, 0.2);
+  border-radius: var(--border-radius-md);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.ai-loading-indicator p {
+  font-size: 13px;
+  color: var(--color-violet);
+  font-weight: 600;
+  font-family: var(--font-heading);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(139, 92, 246, 0.2);
+  border-top-color: var(--color-violet);
+  border-radius: var(--border-radius-round);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Submit AI button color adjustment */
+.btn-ai-submit {
+  background-color: var(--color-violet) !important;
+}
+
+.btn-ai-submit:hover {
+  background-color: #7c3aed !important; /* darker violet */
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25) !important;
+}
+
+/* Toast Container */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 999;
+  pointer-events: none;
+}
+
+/* Toast Notification */
+.toast {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--bg-card-border);
+  color: var(--text-main);
+  padding: 16px 24px;
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 320px;
+  pointer-events: auto;
+  animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.toast.success {
+  border-left: 4px solid var(--color-emerald);
+}
+
+.toast.success span.material-symbols-outlined {
+  color: var(--color-emerald);
+}
+
+.toast.error {
+  border-left: 4px solid var(--priority-high-text);
+}
+
+.toast.error span.material-symbols-outlined {
+  color: var(--priority-high-text);
+}
+
+.toast.info {
+  border-left: 4px solid var(--color-primary);
+}
+
+.toast.info span.material-symbols-outlined {
+  color: var(--color-primary);
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

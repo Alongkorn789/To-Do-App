@@ -132,10 +132,16 @@
             <h1 class="page-title" id="pageTitle">งานทั้งหมด</h1>
             <p class="page-subtitle" id="pageSubtitle">จัดการสิ่งที่คุณต้องทำในวันนี้อย่างเป็นระเบียบ</p>
           </div>
-          <button class="btn-primary" id="openAddTaskModalBtn">
-            <span class="material-symbols-outlined">add</span>
-            <span>เพิ่มงานใหม่</span>
-          </button>
+          <div class="content-header-actions" style="display: flex; gap: 12px;">
+            <button class="btn-secondary btn-ai" id="openSmartAddModalBtn">
+              <span class="material-symbols-outlined">psychology</span>
+              <span>Smart Add (AI)</span>
+            </button>
+            <button class="btn-primary" id="openAddTaskModalBtn">
+              <span class="material-symbols-outlined">add</span>
+              <span>เพิ่มงานใหม่</span>
+            </button>
+          </div>
         </section>
 
         <!-- Stats Overview for Mobile & Top of Page -->
@@ -381,6 +387,42 @@
       </form>
     </div>
   </div>
+
+  <!-- AI Smart Add Modal -->
+  <div class="modal" id="smartAddModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3>Smart Add (AI)</h3>
+        <button class="btn-close-modal" id="closeSmartAddModalBtn">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <form id="smartAddForm">
+        <div class="form-group">
+          <label for="smartAddText">ป้อนรายละเอียดงานของคุณ (เช่น "ส่งรายงานให้หัวหน้าพรุ่งนี้ตอนบ่ายสอง ประชุมด่วน") <span class="required">*</span></label>
+          <textarea id="smartAddText" rows="6" placeholder="AI จะช่วยวิเคราะห์ หัวข้อ, รายละเอียด, วันที่ครบกำหนด, หมวดหมู่ และความสำคัญให้อัตโนมัติ..." required></textarea>
+        </div>
+
+        <!-- Loading State Indicator -->
+        <div class="ai-loading-indicator" id="aiLoadingIndicator" style="display: none;">
+          <div class="spinner"></div>
+          <p>กำลังประมวลผลด้วย AI...</p>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-text" id="cancelSmartAddModalBtn">ยกเลิก</button>
+          <button type="submit" class="btn-primary btn-ai-submit" id="processSmartAddBtn">
+            <span class="material-symbols-outlined">psychology</span>
+            <span>ประมวลผลและบันทึก</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <!-- JavaScript Entry Point -->
   <script type="module" src="/src/js/app.js"></script>

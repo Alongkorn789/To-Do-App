@@ -59,7 +59,17 @@ const elements = {
   openAddCategoryModalBtn: document.getElementById('openAddCategoryModalBtn'),
   closeCategoryModalBtn: document.getElementById('closeCategoryModalBtn'),
   cancelCategoryModalBtn: document.getElementById('cancelCategoryModalBtn'),
-  categoryNameInput: document.getElementById('categoryName')
+  categoryNameInput: document.getElementById('categoryName'),
+
+  // AI Smart Add Modals
+  openSmartAddModalBtn: document.getElementById('openSmartAddModalBtn'),
+  smartAddModal: document.getElementById('smartAddModal'),
+  smartAddForm: document.getElementById('smartAddForm'),
+  smartAddTextInput: document.getElementById('smartAddText'),
+  closeSmartAddModalBtn: document.getElementById('closeSmartAddModalBtn'),
+  cancelSmartAddModalBtn: document.getElementById('cancelSmartAddModalBtn'),
+  aiLoadingIndicator: document.getElementById('aiLoadingIndicator'),
+  processSmartAddBtn: document.getElementById('processSmartAddBtn')
 };
 
 // Backdrop element for Mobile Sidebar
@@ -96,6 +106,31 @@ const formatDisplayDate = (dateStr) => {
     'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
   ];
   return `${date.getDate()} ${thaiMonths[date.getMonth()]} ${date.getFullYear() + 543}`;
+};
+
+// Premium Toast Notification Helper
+const showToast = (message, type = 'success') => {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const icon = type === 'success' ? 'check_circle' : (type === 'error' ? 'error' : 'info');
+  
+  toast.innerHTML = `
+    <span class="material-symbols-outlined">${icon}</span>
+    <span class="toast-message">${escapeHTML(message)}</span>
+  `;
+  
+  container.appendChild(toast);
+  
+  // Auto remove after 3.5 seconds
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-10px) scale(0.9)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
 };
 
 // Priority map for labels
@@ -443,6 +478,20 @@ const closeCategoryModal = () => {
   elements.categoryForm.reset();
 };
 
+// Open AI Smart Add Modal
+const openSmartAddModal = () => {
+  elements.smartAddForm.reset();
+  elements.aiLoadingIndicator.style.display = 'none';
+  elements.processSmartAddBtn.disabled = false;
+  elements.smartAddTextInput.disabled = false;
+  elements.smartAddModal.classList.add('active');
+};
+
+const closeSmartAddModal = () => {
+  elements.smartAddModal.classList.remove('active');
+  elements.smartAddForm.reset();
+};
+
 // Bind dynamic actions to rendered task cards
 const setupTaskCardEvents = (tasks) => {
   const cards = elements.taskList.querySelectorAll('.task-card');
@@ -561,12 +610,21 @@ const registerEvents = () => {
   elements.openAddTaskModalBtn.addEventListener('click', () => openTaskModal(null));
   elements.emptyStateAddTaskBtn.addEventListener('click', () => openTaskModal(null));
   elements.openAddCategoryModalBtn.addEventListener('click', openCategoryModal);
+  if (elements.openSmartAddModalBtn) {
+    elements.openSmartAddModalBtn.addEventListener('click', openSmartAddModal);
+  }
 
   // Close modals
   elements.closeTaskModalBtn.addEventListener('click', closeTaskModal);
   elements.cancelTaskModalBtn.addEventListener('click', closeTaskModal);
   elements.closeCategoryModalBtn.addEventListener('click', closeCategoryModal);
   elements.cancelCategoryModalBtn.addEventListener('click', closeCategoryModal);
+  if (elements.closeSmartAddModalBtn) {
+    elements.closeSmartAddModalBtn.addEventListener('click', closeSmartAddModal);
+  }
+  if (elements.cancelSmartAddModalBtn) {
+    elements.cancelSmartAddModalBtn.addEventListener('click', closeSmartAddModal);
+  }
 
   // Submit Task Form
   elements.taskForm.addEventListener('submit', async (e) => {
@@ -653,6 +711,46 @@ const registerEvents = () => {
       console.error("Failed to save category:", err);
     }
   });
+
+  // Submit AI Smart Add Form
+  if (elements.smartAddForm) {
+    elements.smartAddForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const text = elements.smartAddTextInput.value.trim();
+      if (!text) return;
+
+      // Show Loading State
+      elements.aiLoadingIndicator.style.display = 'flex';
+      elements.processSmartAddBtn.disabled = true;
+      elements.smartAddTextInput.disabled = true;
+
+      try {
+        const result = await storage.smartAddRequest(text);
+        
+        // Immediately save the task returned by AI
+        await storage.saveTask({
+          title: result.title,
+          description: result.description,
+          dueDate: result.dueDate,
+          categoryId: result.categoryId,
+          priority: result.priority
+        });
+
+        // Close modal, show toast, render tasks
+        closeSmartAddModal();
+        showToast('AI ได้วิเคราะห์และบันทึกงานของคุณสำเร็จแล้ว!', 'success');
+        await renderTasks();
+      } catch (err) {
+        console.error("Smart Add failed:", err);
+        showToast('ไม่สามารถวิเคราะห์ข้อมูลด้วย AI ได้ กรุณาลองใหม่อีกครั้ง', 'error');
+      } finally {
+        elements.aiLoadingIndicator.style.display = 'none';
+        elements.processSmartAddBtn.disabled = false;
+        elements.smartAddTextInput.disabled = false;
+      }
+    });
+  }
 };
 
 // Boot App

@@ -105,4 +105,43 @@ describe('storage.js (Frontend Storage APIs)', () => {
       expect(result).toEqual(expectedResponse);
     });
   });
+
+  describe('smartAddRequest', () => {
+    it('should call POST /api/smart-add with the input text and return parsed JSON on success', async () => {
+      const inputText = 'ส่งรายงานภาษีพรุ่งนี้';
+      const expectedResponse = {
+        title: 'ส่งรายงานภาษี',
+        description: '',
+        categoryId: 'cat-work',
+        dueDate: '2026-05-30',
+        priority: 'high'
+      };
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => expectedResponse
+      });
+
+      const result = await storage.smartAddRequest(inputText);
+
+      expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/smart-add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: inputText })
+      });
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should throw an error when API call fails', async () => {
+      const inputText = 'ล้มเหลว';
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 500
+      });
+
+      await expect(storage.smartAddRequest(inputText)).rejects.toThrow("Failed to process smart add via AI");
+    });
+  });
 });

@@ -64,6 +64,24 @@ export const storage = {
     }
   },
 
+  // AI SMART ADD API
+  async smartAddRequest(text) {
+    try {
+      const res = await fetch(`${API_URL}/api/smart-add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text })
+      });
+      if (!res.ok) throw new Error("Failed to process smart add via AI");
+      return await res.json();
+    } catch (err) {
+      console.error("Error in smartAddRequest:", err);
+      throw err;
+    }
+  },
+
   async deleteTask(id) {
     try {
       const res = await fetch(`${API_URL}/tasks/${id}`, {
