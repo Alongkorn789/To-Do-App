@@ -265,6 +265,9 @@ def login(payload: dict, response: Response):
         httponly=True,
         secure=COOKIE_SECURE,
         samesite=COOKIE_SAMESITE,
+
+        path="/",  # <--- เติมบรรทัดนี้ลงไปครับ (สำคัญมาก!)
+
         max_age=1440 * 60, # 24 hours
         expires=1440 * 60
     )
@@ -285,7 +288,8 @@ def logout(response: Response):
     response.delete_cookie(
         key="access_token",
         secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE
+        samesite=COOKIE_SAMESITE,
+        path="/"  # <--- เติมบรรทัดนี้ลงไปครับ!
     )
     return {
         "status": "success",
