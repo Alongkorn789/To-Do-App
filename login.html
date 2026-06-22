@@ -18,6 +18,15 @@
   <link rel="stylesheet" href="/src/css/main.css">
 </head>
 <body class="auth-page">
+  <script>
+    // Apply cached theme synchronously before first paint to prevent dark/light flash
+    (function() {
+      const cachedTheme = localStorage.getItem('theme') || 'dark';
+      if (cachedTheme === 'light') {
+        document.body.classList.add('light-mode');
+      }
+    })();
+  </script>
   <div class="auth-bg-glow"></div>
   <div class="auth-bg-glow secondary"></div>
 

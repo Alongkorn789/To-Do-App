@@ -789,6 +789,12 @@ const initApp = async () => {
   initMobileSidebar();
   registerEvents();
   await renderTasks();
+
+  // Make the app container visible after everything is fully loaded and rendered
+  const container = document.querySelector('.app-container');
+  if (container) {
+    container.style.visibility = 'visible';
+  }
 };
 
 document.addEventListener('DOMContentLoaded', initApp);
