@@ -1,20 +1,20 @@
 {
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://todo-app-backend.onrender.com/api/:path*"
+      "source": "/api/(.*)",
+      "destination": "https://to-do-app-pc0y.onrender.com/api/$1"
     },
     {
-      "source": "/tasks/:path*",
-      "destination": "https://todo-app-backend.onrender.com/tasks/:path*"
+      "source": "/tasks/(.*)",
+      "destination": "https://to-do-app-pc0y.onrender.com/tasks/$1"
     },
     {
-      "source": "/categories/:path*",
-      "destination": "https://todo-app-backend.onrender.com/categories/:path*"
+      "source": "/categories/(.*)",
+      "destination": "https://to-do-app-pc0y.onrender.com/categories/$1"
     },
     {
       "source": "/theme",
-      "destination": "https://todo-app-backend.onrender.com/theme"
+      "destination": "https://to-do-app-pc0y.onrender.com/theme"
     }
   ]
 }
