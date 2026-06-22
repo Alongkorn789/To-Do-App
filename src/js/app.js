@@ -154,18 +154,32 @@ const PRIORITY_WEIGHTS = {
 
 // Apply and setup Theme
 const initTheme = async () => {
-  const savedTheme = await storage.getTheme();
-  if (savedTheme === 'light') {
+  const cachedTheme = localStorage.getItem('theme');
+  if (cachedTheme === 'light') {
     elements.body.classList.add('light-mode');
-  } else {
+  } else if (cachedTheme === 'dark') {
     elements.body.classList.remove('light-mode');
+  }
+
+  try {
+    const savedTheme = await storage.getTheme();
+    localStorage.setItem('theme', savedTheme);
+    if (savedTheme === 'light') {
+      elements.body.classList.add('light-mode');
+    } else {
+      elements.body.classList.remove('light-mode');
+    }
+  } catch (err) {
+    console.error("Failed to sync theme:", err);
   }
 };
 
 // Toggle Theme
 const toggleTheme = async () => {
   const isLight = elements.body.classList.toggle('light-mode');
-  await storage.setTheme(isLight ? 'light' : 'dark');
+  const theme = isLight ? 'light' : 'dark';
+  localStorage.setItem('theme', theme);
+  await storage.setTheme(theme);
 };
 
 // Setup mobile sidebar backdrop

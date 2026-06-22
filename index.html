@@ -6,14 +6,26 @@
   <title>TaskFlow - Modern Task Manager & To-Do App</title>
   <meta name="description" content="จัดการงานของคุณอย่างมีประสิทธิภาพด้วย TaskFlow แอปพลิเคชัน To-Do สไตล์ Modern Minimalist">
   
+  <style>
+    /* Hide app content by default to prevent flicker during session check */
+    .app-container {
+      visibility: hidden;
+    }
+  </style>
   <!-- Auth Session Check Script (Blocking) -->
   <script>
-    document.documentElement.style.visibility = 'hidden';
     (async function() {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' });
         if (res.ok) {
-          document.documentElement.style.visibility = 'visible';
+          const container = document.querySelector('.app-container');
+          if (container) {
+            container.style.visibility = 'visible';
+          } else {
+            const style = document.createElement('style');
+            style.innerHTML = '.app-container { visibility: visible !important; }';
+            document.head.appendChild(style);
+          }
         } else {
           window.location.replace('/login.html');
         }
@@ -35,6 +47,15 @@
   <link rel="stylesheet" href="/src/css/main.css">
 </head>
 <body>
+  <script>
+    // Apply cached theme synchronously before first paint to prevent dark/light flash
+    (function() {
+      const cachedTheme = localStorage.getItem('theme') || 'dark';
+      if (cachedTheme === 'light') {
+        document.body.classList.add('light-mode');
+      }
+    })();
+  </script>
   <div class="app-container">
     <!-- Sidebar Navigation -->
     <aside class="sidebar" id="sidebar">
