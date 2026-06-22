@@ -19,11 +19,14 @@ pymongo.MongoClient = MagicMock(return_value=mock_client)
 from bson import ObjectId
 
 # 2. Now import FastAPI app and TestClient
-from main import app
+from main import app, get_current_user
 from fastapi.testclient import TestClient
 import pytest
 
 client = TestClient(app)
+
+# Override auth dependency for testing CRUD & Smart Add
+app.dependency_overrides[get_current_user] = lambda: "mock_user_id"
 
 @pytest.fixture(autouse=True)
 def reset_db_mocks():
@@ -116,7 +119,7 @@ def test_create_task():
     assert data["completed"] is False
     
     mock_db.tasks.insert_one.assert_called_once()
-    mock_db.tasks.find_one.assert_called_once_with({"_id": ObjectId("60d5ec4b1a454d4f4c8b456a")})
+    mock_db.tasks.find_one.assert_called_once_with({"_id": ObjectId("60d5ec4b1a454d4f4c8b456a"), "userId": "mock_user_id"})
 
 
 def test_update_task():
@@ -152,10 +155,10 @@ def test_update_task():
     assert data["completed"] is True
     
     mock_db.tasks.update_one.assert_called_once_with(
-        {"_id": ObjectId(task_id)},
+        {"_id": ObjectId(task_id), "userId": "mock_user_id"},
         {"$set": payload}
     )
-    mock_db.tasks.find_one.assert_called_once_with({"_id": ObjectId(task_id)})
+    mock_db.tasks.find_one.assert_called_once_with({"_id": ObjectId(task_id), "userId": "mock_user_id"})
 
 
 def test_delete_task():
@@ -171,7 +174,7 @@ def test_delete_task():
     assert data["status"] == "success"
     assert task_id in data["message"]
     
-    mock_db.tasks.delete_one.assert_called_once_with({"_id": ObjectId(task_id)})
+    mock_db.tasks.delete_one.assert_called_once_with({"_id": ObjectId(task_id), "userId": "mock_user_id"})
 
 
 # ==========================================================================
@@ -263,4 +266,122 @@ def test_smart_add_fallback(mock_create):
     data = response.json()
     assert data["title"] == "ส่งรายงานภาษีด่วน พรุ่งนี้"
     assert "วิเคราะห์ล้มเหลว" in data["description"]
+
+
+# ==========================================================================
+# Authentication API Unit Tests
+# ==========================================================================
+
+def test_register_success():
+    payload = {
+        "username": "newuser",
+        "email": "newuser@example.com",
+        "password": "password123"
+    }
+    # Mock user check returns None
+    mock_db.users.find_one.return_value = None
+    
+    # Mock insert user
+    mock_insert_result = MagicMock()
+    mock_insert_result.inserted_id = ObjectId("60d5ec4b1a454d4f4c8b456b")
+    mock_db.users.insert_one.return_value = mock_insert_result
+    
+    # Mock seeding of default categories & tasks
+    mock_db.categories.insert_one.return_value = MagicMock(inserted_id="seeded-cat")
+    mock_db.tasks.insert_many.return_value = MagicMock()
+
+    response = client.post("/api/auth/register", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    assert response.json()["userId"] == "60d5ec4b1a454d4f4c8b456b"
+    
+    mock_db.users.find_one.assert_called_once()
+    mock_db.users.insert_one.assert_called_once()
+    mock_db.categories.insert_one.assert_called()
+    mock_db.tasks.insert_many.assert_called_once()
+
+
+def test_register_missing_fields():
+    payload = {
+        "username": "newuser"
+    }
+    response = client.post("/api/auth/register", json=payload)
+    assert response.status_code == 400
+
+
+def test_register_existing_user():
+    payload = {
+        "username": "existinguser",
+        "email": "existinguser@example.com",
+        "password": "password123"
+    }
+    mock_db.users.find_one.return_value = {"username": "existinguser"}
+    response = client.post("/api/auth/register", json=payload)
+    assert response.status_code == 400
+
+
+import bcrypt
+
+def test_login_success():
+    payload = {
+        "username": "testuser",
+        "password": "password123"
+    }
+    hashed = bcrypt.hashpw(payload["password"].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    mock_user = {
+        "_id": ObjectId("60d5ec4b1a454d4f4c8b456c"),
+        "username": "testuser",
+        "email": "testuser@example.com",
+        "password_hash": hashed
+    }
+    mock_db.users.find_one.return_value = mock_user
+
+    response = client.post("/api/auth/login", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    assert "access_token" in response.cookies
+
+
+def test_login_invalid_password():
+    payload = {
+        "username": "testuser",
+        "password": "wrongpassword"
+    }
+    hashed = bcrypt.hashpw("password123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    mock_user = {
+        "_id": ObjectId("60d5ec4b1a454d4f4c8b456c"),
+        "username": "testuser",
+        "email": "testuser@example.com",
+        "password_hash": hashed
+    }
+    mock_db.users.find_one.return_value = mock_user
+
+    response = client.post("/api/auth/login", json=payload)
+    assert response.status_code == 401
+
+
+def test_logout():
+    response = client.post("/api/auth/logout")
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+
+
+def test_get_me_authenticated():
+    mock_user = {
+        "_id": ObjectId("60d5ec4b1a454d4f4c8b456c"),
+        "username": "testuser",
+        "email": "testuser@example.com"
+    }
+    mock_db.users.find_one.return_value = mock_user
+    response = client.get("/api/auth/me")
+    assert response.status_code == 200
+    assert response.json()["username"] == "testuser"
+    mock_db.users.find_one.assert_called_once_with({"_id": "mock_user_id"})
+
+
+def test_get_me_not_found():
+    mock_db.users.find_one.return_value = None
+    response = client.get("/api/auth/me")
+    assert response.status_code == 404
+
 

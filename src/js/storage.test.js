@@ -1,9 +1,27 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { storage } from './storage.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Define global.window before importing storage.js
+if (typeof global.window === 'undefined') {
+  global.window = {
+    location: {
+      pathname: '/index.html',
+      replace: vi.fn(),
+      href: ''
+    }
+  };
+}
 
 // Mock global fetch
 const fetchMock = vi.fn();
 global.fetch = fetchMock;
+
+// Import storage module under test
+import { storage } from './storage.js';
+
+beforeEach(() => {
+  global.window.location.replace = vi.fn();
+  global.window.location.pathname = '/index.html';
+});
 
 describe('storage.js (Frontend Storage APIs)', () => {
   beforeEach(() => {
@@ -21,12 +39,15 @@ describe('storage.js (Frontend Storage APIs)', () => {
 
       fetchMock.mockResolvedValueOnce({
         ok: true,
+        status: 200,
         json: async () => mockTasks
       });
 
       const result = await storage.getTasks();
 
-      expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/tasks');
+      expect(fetchMock).toHaveBeenCalledWith('/tasks', {
+        credentials: 'include'
+      });
       expect(result).toEqual(mockTasks);
     });
 
@@ -38,8 +59,21 @@ describe('storage.js (Frontend Storage APIs)', () => {
 
       const result = await storage.getTasks();
 
-      expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/tasks');
+      expect(fetchMock).toHaveBeenCalledWith('/tasks', {
+        credentials: 'include'
+      });
       expect(result).toEqual([]);
+    });
+
+    it('should redirect to login.html on 401 response', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 401
+      });
+
+      const result = await storage.getTasks();
+      expect(result).toEqual([]);
+      expect(window.location.replace).toHaveBeenCalledWith('/login.html');
     });
   });
 
@@ -50,17 +84,19 @@ describe('storage.js (Frontend Storage APIs)', () => {
 
       fetchMock.mockResolvedValueOnce({
         ok: true,
+        status: 200,
         json: async () => expectedResponse
       });
 
       const result = await storage.saveTask(taskData);
 
-      expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/tasks', {
+      expect(fetchMock).toHaveBeenCalledWith('/tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(taskData)
+        body: JSON.stringify(taskData),
+        credentials: 'include'
       });
       expect(result).toEqual(expectedResponse);
     });
@@ -71,17 +107,19 @@ describe('storage.js (Frontend Storage APIs)', () => {
 
       fetchMock.mockResolvedValueOnce({
         ok: true,
+        status: 200,
         json: async () => expectedResponse
       });
 
       const result = await storage.saveTask(taskData);
 
-      expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/tasks/task-existing', {
+      expect(fetchMock).toHaveBeenCalledWith('/tasks/task-existing', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(taskData)
+        body: JSON.stringify(taskData),
+        credentials: 'include'
       });
       expect(result).toEqual(expectedResponse);
     });
@@ -94,13 +132,15 @@ describe('storage.js (Frontend Storage APIs)', () => {
 
       fetchMock.mockResolvedValueOnce({
         ok: true,
+        status: 200,
         json: async () => expectedResponse
       });
 
       const result = await storage.deleteTask(taskId);
 
-      expect(fetchMock).toHaveBeenCalledWith(`http://127.0.0.1:8000/tasks/${taskId}`, {
-        method: 'DELETE'
+      expect(fetchMock).toHaveBeenCalledWith(`/tasks/${taskId}`, {
+        method: 'DELETE',
+        credentials: 'include'
       });
       expect(result).toEqual(expectedResponse);
     });
@@ -119,17 +159,19 @@ describe('storage.js (Frontend Storage APIs)', () => {
 
       fetchMock.mockResolvedValueOnce({
         ok: true,
+        status: 200,
         json: async () => expectedResponse
       });
 
       const result = await storage.smartAddRequest(inputText);
 
-      expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8000/api/smart-add', {
+      expect(fetchMock).toHaveBeenCalledWith('/api/smart-add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ text: inputText })
+        body: JSON.stringify({ text: inputText }),
+        credentials: 'include'
       });
       expect(result).toEqual(expectedResponse);
     });
@@ -142,6 +184,73 @@ describe('storage.js (Frontend Storage APIs)', () => {
       });
 
       await expect(storage.smartAddRequest(inputText)).rejects.toThrow("Failed to process smart add via AI");
+    });
+  });
+
+  describe('Authentication APIs', () => {
+    it('should login user and return user data on success', async () => {
+      const expectedResponse = { status: 'success', user: { username: 'test' } };
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => expectedResponse
+      });
+
+      const result = await storage.login('test', 'pass');
+      expect(fetchMock).toHaveBeenCalledWith('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'test', password: 'pass' }),
+        credentials: 'include'
+      });
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should register user on success', async () => {
+      const expectedResponse = { status: 'success', userId: '123' };
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => expectedResponse
+      });
+
+      const result = await storage.register('test', 'test@ex.com', 'pass');
+      expect(fetchMock).toHaveBeenCalledWith('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'test', email: 'test@ex.com', password: 'pass' }),
+        credentials: 'include'
+      });
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should logout user on success', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200
+      });
+
+      const result = await storage.logout();
+      expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      expect(result).toBe(true);
+    });
+
+    it('should checkSession successfully', async () => {
+      const expectedResponse = { username: 'test' };
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => expectedResponse
+      });
+
+      const result = await storage.checkSession();
+      expect(fetchMock).toHaveBeenCalledWith('/api/auth/me', {
+        credentials: 'include'
+      });
+      expect(result).toEqual(expectedResponse);
     });
   });
 });

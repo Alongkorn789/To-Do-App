@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://todo-app-backend.onrender.com/api/:path*"
+    },
+    {
+      "source": "/tasks/:path*",
+      "destination": "https://todo-app-backend.onrender.com/tasks/:path*"
+    },
+    {
+      "source": "/categories/:path*",
+      "destination": "https://todo-app-backend.onrender.com/categories/:path*"
+    },
+    {
+      "source": "/theme",
+      "destination": "https://todo-app-backend.onrender.com/theme"
+    }
+  ]
+}

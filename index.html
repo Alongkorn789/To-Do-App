@@ -6,6 +6,23 @@
   <title>TaskFlow - Modern Task Manager & To-Do App</title>
   <meta name="description" content="จัดการงานของคุณอย่างมีประสิทธิภาพด้วย TaskFlow แอปพลิเคชัน To-Do สไตล์ Modern Minimalist">
   
+  <!-- Auth Session Check Script (Blocking) -->
+  <script>
+    document.documentElement.style.visibility = 'hidden';
+    (async function() {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          document.documentElement.style.visibility = 'visible';
+        } else {
+          window.location.replace('/login.html');
+        }
+      } catch (err) {
+        window.location.replace('/login.html');
+      }
+    })();
+  </script>
+  
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -120,6 +137,11 @@
           <button class="btn-theme-toggle" id="themeToggleBtn" title="เปลี่ยนธีม" aria-label="เปลี่ยนธีม">
             <span class="material-symbols-outlined dark-icon">dark_mode</span>
             <span class="material-symbols-outlined light-icon">light_mode</span>
+          </button>
+
+          <!-- Logout Button -->
+          <button class="btn-logout" id="logoutBtn" title="ออกจากระบบ" aria-label="ออกจากระบบ">
+            <span class="material-symbols-outlined">logout</span>
           </button>
         </div>
       </header>

@@ -2,28 +2,95 @@
    TaskFlow Storage Module - Integrated with MongoDB & FastAPI
    ========================================================================== */
 
-const API_URL = 'http://127.0.0.1:8000';
+// Helper function to handle fetch calls with credentials and status checks
+async function request(url, options = {}) {
+  options.credentials = 'include';
+  
+  if (options.body && !options.headers) {
+    options.headers = {
+      'Content-Type': 'application/json'
+    };
+  }
+
+  const res = await fetch(url, options);
+
+  if (res.status === 401) {
+    if (!window.location.pathname.endsWith('login.html')) {
+      window.location.replace('/login.html');
+    }
+    throw new Error('Unauthorized');
+  }
+
+  return res;
+}
 
 export const storage = {
   // Initial handshake with API
   async init() {
     try {
-      const res = await fetch(`${API_URL}/`);
+      const res = await request('/api/auth/me');
       if (!res.ok) {
         throw new Error(`Server returned status: ${res.status}`);
       }
-      const data = await res.json();
-      console.log('Backend connected:', data.message);
+      const user = await res.json();
+      console.log('Backend connected. Authenticated as:', user.username);
+      return user;
     } catch (err) {
-      console.error('Cannot connect to backend server. Please make sure Uvicorn is running.', err);
-      alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ Backend ได้! โปรดตรวจสอบว่ารันระบบหลังบ้านอยู่');
+      console.error('Cannot connect to backend server or not authenticated.', err);
+    }
+  },
+
+  // AUTH API
+  async login(username, password) {
+    const res = await request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password })
+    });
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.detail || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    }
+    return await res.json();
+  },
+
+  async register(username, email, password) {
+    const res = await request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, email, password })
+    });
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.detail || 'ลงทะเบียนไม่สำเร็จ');
+    }
+    return await res.json();
+  },
+
+  async logout() {
+    try {
+      const res = await request('/api/auth/logout', {
+        method: 'POST'
+      });
+      return res.ok;
+    } catch (err) {
+      console.error("Error in logout:", err);
+      return false;
+    }
+  },
+
+  async checkSession() {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      return null;
     }
   },
 
   // TASKS API
   async getTasks() {
     try {
-      const res = await fetch(`${API_URL}/tasks`);
+      const res = await request('/tasks');
       if (!res.ok) throw new Error("Failed to fetch tasks");
       return await res.json();
     } catch (err) {
@@ -37,20 +104,14 @@ export const storage = {
       let res;
       if (taskData.id) {
         // Edit existing task
-        res = await fetch(`${API_URL}/tasks/${taskData.id}`, {
+        res = await request(`/tasks/${taskData.id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
           body: JSON.stringify(taskData)
         });
       } else {
         // Create new task
-        res = await fetch(`${API_URL}/tasks`, {
+        res = await request('/tasks', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
           body: JSON.stringify(taskData)
         });
       }
@@ -67,11 +128,8 @@ export const storage = {
   // AI SMART ADD API
   async smartAddRequest(text) {
     try {
-      const res = await fetch(`${API_URL}/api/smart-add`, {
+      const res = await request('/api/smart-add', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ text })
       });
       if (!res.ok) throw new Error("Failed to process smart add via AI");
@@ -84,7 +142,7 @@ export const storage = {
 
   async deleteTask(id) {
     try {
-      const res = await fetch(`${API_URL}/tasks/${id}`, {
+      const res = await request(`/tasks/${id}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error("Failed to delete task");
@@ -117,7 +175,7 @@ export const storage = {
   // CATEGORIES API
   async getCategories() {
     try {
-      const res = await fetch(`${API_URL}/categories`);
+      const res = await request('/categories');
       if (!res.ok) throw new Error("Failed to fetch categories");
       return await res.json();
     } catch (err) {
@@ -128,11 +186,8 @@ export const storage = {
 
   async saveCategory(categoryData) {
     try {
-      const res = await fetch(`${API_URL}/categories`, {
+      const res = await request('/categories', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(categoryData)
       });
       if (!res.ok) throw new Error("Failed to save category");
@@ -146,7 +201,7 @@ export const storage = {
 
   async deleteCategory(id) {
     try {
-      const res = await fetch(`${API_URL}/categories/${id}`, {
+      const res = await request(`/categories/${id}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error("Failed to delete category");
@@ -161,7 +216,7 @@ export const storage = {
   // THEME API
   async getTheme() {
     try {
-      const res = await fetch(`${API_URL}/theme`);
+      const res = await request('/theme');
       if (!res.ok) throw new Error("Failed to fetch theme");
       const data = await res.json();
       return data.theme;
@@ -173,11 +228,8 @@ export const storage = {
 
   async setTheme(theme) {
     try {
-      const res = await fetch(`${API_URL}/theme`, {
+      const res = await request('/theme', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ theme })
       });
       if (!res.ok) throw new Error("Failed to save theme");

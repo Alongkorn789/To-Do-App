@@ -26,6 +26,7 @@ const elements = {
   emptyStateAddTaskBtn: document.getElementById('emptyStateAddTaskBtn'),
   openAddTaskModalBtn: document.getElementById('openAddTaskModalBtn'),
   themeToggleBtn: document.getElementById('themeToggleBtn'),
+  logoutBtn: document.getElementById('logoutBtn'),
   menuToggleBtn: document.getElementById('menuToggleBtn'),
   sidebar: document.getElementById('sidebar'),
   closeSidebarBtn: document.getElementById('closeSidebarBtn'),
@@ -546,6 +547,20 @@ const setupTaskCardEvents = (tasks) => {
 const registerEvents = () => {
   // Theme Toggle click
   elements.themeToggleBtn.addEventListener('click', toggleTheme);
+
+  // Logout Button click
+  if (elements.logoutBtn) {
+    elements.logoutBtn.addEventListener('click', async () => {
+      if (confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
+        const success = await storage.logout();
+        if (success) {
+          window.location.replace('/login.html');
+        } else {
+          alert('เกิดข้อผิดพลาดในการออกจากระบบ');
+        }
+      }
+    });
+  }
 
   // Auto-format slash on date input typing
   elements.taskDueDateInput.addEventListener('input', (e) => {
