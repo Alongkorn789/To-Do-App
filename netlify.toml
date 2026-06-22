@@ -1,6 +1,6 @@
 [[redirects]]
   from = "/api/*"
-  to = "https://to-do-app-pc0y.onrender.com/:splat"
+  to = "https://to-do-app-pc0y.onrender.com/api/:splat"
   status = 200
   force = true
 
