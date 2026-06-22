@@ -264,7 +264,9 @@ def login(payload: dict, response: Response):
         value=token,
         httponly=True,
         secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
+        #samesite=COOKIE_SAMESITE,
+
+        samesite="lax",
 
         path="/",  # <--- เติมบรรทัดนี้ลงไปครับ (สำคัญมาก!)
 
@@ -288,7 +290,10 @@ def logout(response: Response):
     response.delete_cookie(
         key="access_token",
         secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
+        #samesite=COOKIE_SAMESITE,
+
+        samesite="lax",
+        
         path="/"  # <--- เติมบรรทัดนี้ลงไปครับ!
     )
     return {
