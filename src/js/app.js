@@ -844,6 +844,9 @@ const initApp = async () => {
     const user = await res.json();
     console.log('Authenticated as:', user.username);
 
+    // ── แสดงชื่อผู้ใช้ที่ topbar ──────────────────────────────────────────────
+    setUserBadge(user);
+
   } catch (err) {
     // AbortError = timeout หลัง 8 วิ
     // TypeError  = network error (server ล่ม, CORS, etc.)
@@ -867,5 +870,25 @@ const initApp = async () => {
   }
 };
 
-document.addEventListener('DOMContentLoaded', initApp);
+// ── แสดงชื่อผู้ใช้และ Avatar ที่ Topbar ────────────────────────────────────────
+const setUserBadge = (user) => {
+  const avatarEl = document.getElementById('userAvatar');
+  const nameEl   = document.getElementById('userNameDisplay');
+  if (!avatarEl || !nameEl) return;
 
+  const name = user.username || user.email || 'User';
+
+  // Avatar: ตัวอักษรแรก (uppercase)
+  avatarEl.textContent = name.charAt(0).toUpperCase();
+
+  // สร้างสีจากชื่อ (consistent per user — ไม่ random ทุก load)
+  const colors = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#db2777','#0891b2'];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i);
+  avatarEl.style.background = colors[hash % colors.length];
+
+  // แสดงชื่อ (ตัดยาวเกิน 16 ตัวอักษร)
+  nameEl.textContent = name.length > 16 ? name.slice(0, 16) + '…' : name;
+};
+
+document.addEventListener('DOMContentLoaded', initApp);

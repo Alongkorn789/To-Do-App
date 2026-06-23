@@ -381,6 +381,45 @@ body.light-mode .topbar {
   gap: 24px;
 }
 
+/* ── User Badge (Avatar + Name) ─────────────────────────────── */
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--bg-card-border);
+  cursor: default;
+  transition: box-shadow var(--transition-fast);
+}
+.user-badge:hover {
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.25);
+}
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+.user-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-main);
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Dashboard summary widgets in header */
 .stats-summary {
   display: flex;
