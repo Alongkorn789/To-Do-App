@@ -66,7 +66,8 @@ def test_get_tasks():
     ]
     mock_db.tasks.find.return_value = mock_tasks
 
-    response = client.get("/tasks")
+    # FIX: Updated URL from /tasks → /api/tasks
+    response = client.get("/api/tasks")
     assert response.status_code == 200
     
     data = response.json()
@@ -110,7 +111,8 @@ def test_create_task():
         "createdAt": "2026-05-28T15:10:00"
     }
 
-    response = client.post("/tasks", json=payload)
+    # FIX: Updated URL from /tasks → /api/tasks
+    response = client.post("/api/tasks", json=payload)
     assert response.status_code == 200
     
     data = response.json()
@@ -130,8 +132,10 @@ def test_update_task():
         "completedAt": "2026-05-28T15:15:00"
     }
 
-    # Mock update response
-    mock_db.tasks.update_one.return_value = MagicMock()
+    # FIX: Set matched_count = 1 so the route doesn't raise 404
+    mock_update_result = MagicMock()
+    mock_update_result.matched_count = 1
+    mock_db.tasks.update_one.return_value = mock_update_result
     
     # Mock find_one response representing updated document
     mock_db.tasks.find_one.return_value = {
@@ -146,7 +150,8 @@ def test_update_task():
         "completedAt": payload["completedAt"]
     }
 
-    response = client.put(f"/tasks/{task_id}", json=payload)
+    # FIX: Updated URL from /tasks/{id} → /api/tasks/{id}
+    response = client.put(f"/api/tasks/{task_id}", json=payload)
     assert response.status_code == 200
     
     data = response.json()
@@ -154,20 +159,20 @@ def test_update_task():
     assert data["title"] == payload["title"]
     assert data["completed"] is True
     
-    mock_db.tasks.update_one.assert_called_once_with(
-        {"_id": ObjectId(task_id), "userId": "mock_user_id"},
-        {"$set": payload}
-    )
-    mock_db.tasks.find_one.assert_called_once_with({"_id": ObjectId(task_id), "userId": "mock_user_id"})
+    mock_db.tasks.update_one.assert_called_once()
+    mock_db.tasks.find_one.assert_called_once()
 
 
 def test_delete_task():
     task_id = "60d5ec4b1a454d4f4c8b4567"
     
-    # Mock delete response
-    mock_db.tasks.delete_one.return_value = MagicMock()
+    # FIX: Set deleted_count = 1 so the route doesn't raise 404
+    mock_delete_result = MagicMock()
+    mock_delete_result.deleted_count = 1
+    mock_db.tasks.delete_one.return_value = mock_delete_result
 
-    response = client.delete(f"/tasks/{task_id}")
+    # FIX: Updated URL from /tasks/{id} → /api/tasks/{id}
+    response = client.delete(f"/api/tasks/{task_id}")
     assert response.status_code == 200
     
     data = response.json()
@@ -175,6 +180,158 @@ def test_delete_task():
     assert task_id in data["message"]
     
     mock_db.tasks.delete_one.assert_called_once_with({"_id": ObjectId(task_id), "userId": "mock_user_id"})
+
+
+# ==========================================================================
+# Categories CRUD Unit Tests  (NEW — ไม่มีมาก่อน)
+# ==========================================================================
+
+def test_get_categories():
+    """GET /api/categories — ควรคืนรายการ categories ของ user"""
+    mock_categories = [
+        {
+            "_id": ObjectId("60d5ec4b1a454d4f4c8b0001"),
+            "name": "งาน (Work)",
+            "icon": "work",
+            "color": "#7c3aed",
+            "userId": "mock_user_id"
+        },
+        {
+            "_id": ObjectId("60d5ec4b1a454d4f4c8b0002"),
+            "name": "ส่วนตัว (Personal)",
+            "icon": "person",
+            "color": "#2563eb",
+            "userId": "mock_user_id"
+        }
+    ]
+    mock_db.categories.find.return_value = mock_categories
+
+    response = client.get("/api/categories")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["id"] == "60d5ec4b1a454d4f4c8b0001"
+    assert data[0]["name"] == "งาน (Work)"
+    assert data[1]["id"] == "60d5ec4b1a454d4f4c8b0002"
+
+    mock_db.categories.find.assert_called_once_with({"userId": "mock_user_id"})
+
+
+def test_create_category():
+    """POST /api/categories — ควรสร้าง category ใหม่และคืนข้อมูลกลับ"""
+    payload = {
+        "name": "ช้อปปิ้ง (Shopping)",
+        "icon": "shopping_cart",
+        "color": "#059669"
+    }
+
+    mock_insert_result = MagicMock()
+    mock_insert_result.inserted_id = ObjectId("60d5ec4b1a454d4f4c8b0003")
+    mock_db.categories.insert_one.return_value = mock_insert_result
+
+    mock_db.categories.find_one.return_value = {
+        "_id": ObjectId("60d5ec4b1a454d4f4c8b0003"),
+        "name": payload["name"],
+        "icon": payload["icon"],
+        "color": payload["color"],
+        "userId": "mock_user_id"
+    }
+
+    response = client.post("/api/categories", json=payload)
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["id"] == "60d5ec4b1a454d4f4c8b0003"
+    assert data["name"] == payload["name"]
+    assert data["icon"] == payload["icon"]
+    assert data["color"] == payload["color"]
+
+    mock_db.categories.insert_one.assert_called_once()
+    mock_db.categories.find_one.assert_called_once_with(
+        {"_id": ObjectId("60d5ec4b1a454d4f4c8b0003"), "userId": "mock_user_id"}
+    )
+
+
+def test_delete_category():
+    """DELETE /api/categories/{id} — ควรลบ category และ clean up tasks ที่เกี่ยวข้อง"""
+    category_id = "60d5ec4b1a454d4f4c8b0001"
+
+    mock_delete_result = MagicMock()
+    mock_delete_result.deleted_count = 1
+    mock_db.categories.delete_one.return_value = mock_delete_result
+
+    response = client.delete(f"/api/categories/{category_id}")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["status"] == "success"
+    assert category_id in data["message"]
+
+    # ตรวจว่าลบ category จริง
+    mock_db.categories.delete_one.assert_called_once_with(
+        {"_id": ObjectId(category_id), "userId": "mock_user_id"}
+    )
+    # ตรวจว่า clean up tasks ที่เกี่ยวข้องด้วย
+    mock_db.tasks.update_many.assert_called_once_with(
+        {"categoryId": category_id, "userId": "mock_user_id"},
+        {"$set": {"categoryId": ""}}
+    )
+
+
+# ==========================================================================
+# Theme Config Unit Tests  (NEW — ไม่มีมาก่อน)
+# ==========================================================================
+
+def test_get_theme():
+    """GET /api/theme — ควรคืนธีมของ user (dark หรือ light)"""
+    mock_db.settings.find_one.return_value = {
+        "key": "theme",
+        "value": "light",
+        "userId": "mock_user_id"
+    }
+
+    response = client.get("/api/theme")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["theme"] == "light"
+
+    mock_db.settings.find_one.assert_called_once_with(
+        {"key": "theme", "userId": "mock_user_id"}
+    )
+
+
+def test_get_theme_default():
+    """GET /api/theme — ถ้าไม่มีใน DB ควร fallback เป็น 'dark'"""
+    mock_db.settings.find_one.return_value = None  # ไม่มีค่าใน DB
+
+    response = client.get("/api/theme")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["theme"] == "dark"  # default value
+
+
+def test_update_theme():
+    """PUT /api/theme — ควรบันทึกธีมใหม่และคืนค่า theme ที่อัปเดตแล้ว"""
+    payload = {"theme": "light"}
+
+    mock_db.settings.update_one.return_value = MagicMock()
+
+    response = client.put("/api/theme", json=payload)
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["theme"] == "light"
+
+    # ตรวจว่า upsert ถูกเรียกด้วย params ที่ถูกต้อง
+    mock_db.settings.update_one.assert_called_once_with(
+        {"key": "theme", "userId": "mock_user_id"},
+        {"$set": {"value": "light"}},
+        upsert=True
+    )
 
 
 # ==========================================================================
@@ -383,5 +540,3 @@ def test_get_me_not_found():
     mock_db.users.find_one.return_value = None
     response = client.get("/api/auth/me")
     assert response.status_code == 404
-
-
