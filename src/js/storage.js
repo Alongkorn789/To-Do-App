@@ -2,16 +2,21 @@
    TaskFlow Storage Module - Integrated with MongoDB & FastAPI
    ========================================================================== */
 
-// Helper: ตรวจ Content-Type ก่อนแปลง JSON
-// ป้องกัน crash "Unexpected token '<'" เมื่อ server ส่ง HTML error page (503)
+// Helper: อ่าน body เป็น text ก่อน แล้วค่อย parse เป็น JSON
+// วิธีนี้ดีกว่าตรวจ Content-Type เพราะ Netlify Proxy อาจ strip header ออก
+// ถ้า parse ไม่ได้ (เช่น ได้ HTML error page จาก Render 503) → throw error ภาษาไทย
 async function safeJSON(res) {
-  const contentType = res.headers.get('Content-Type') || '';
-  if (!contentType.includes('application/json')) {
-    // Server ส่ง HTML หรือ text กลับมา (เช่น Render/Netlify error page)
-    const text = await res.text().catch(() => '');
-    throw new Error(`Server ไม่พร้อมให้บริการ (HTTP ${res.status}). กรุณาลองใหม่อีกครั้ง`);
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (parseErr) {
+    // Body ไม่ใช่ JSON → server ส่ง HTML error page กลับมา (เช่น Render/Netlify 502/503)
+    const status = res.status;
+    if (status >= 500) {
+      throw new Error(`เซิร์ฟเวอร์ไม่พร้อมให้บริการชั่วคราว (HTTP ${status}) กรุณารอสักครู่แล้วลองใหม่`);
+    }
+    throw new Error(`ได้รับข้อมูลที่ไม่ถูกต้องจากเซิร์ฟเวอร์ (HTTP ${status})`);
   }
-  return res.json();
 }
 
 // Helper function to handle fetch calls with credentials and status checks
@@ -134,11 +139,17 @@ export const storage = {
           body: JSON.stringify(taskData)
         });
       }
-      if (!res.ok) throw new Error("Failed to save task");
+      if (!res.ok) {
+        throw new Error(`Failed to save task: HTTP ${res.status}`);
+      }
       return await safeJSON(res);
     } catch (err) {
-      console.error("Error in saveTask:", err);
-      alert('ไม่สามารถบันทึกงานได้ เนื่องจากข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+      console.error("Error in saveTask:", err.message);
+      // แสดง HTTP status จริงๆ เพื่อช่วย diagnose ปัญหา
+      const msg = err.message.includes('HTTP')
+        ? `ไม่สามารถบันทึกงานได้ (${err.message})`
+        : 'ไม่สามารถบันทึกงานได้ เนื่องจากข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์';
+      alert(msg);
       throw err;
     }
   },
