@@ -205,6 +205,13 @@ def read_root():
         "message": "TaskFlow Backend API is running successfully!"
     }
 
+# Health Check Endpoint (ไม่ query DB — ตอบกลับทันที)
+# ใช้สำหรับ Render Health Check เพื่อ keep service ไม่ให้ Sleep
+# และใช้ Frontend ping เพื่อ wake up server ก่อนเรียก auth/me
+@app.get("/api/health")
+def health_check():
+    return {"status": "ok"}
+
 # ==========================================================================
 # AUTHENTICATION API ENDPOINTS
 # ==========================================================================

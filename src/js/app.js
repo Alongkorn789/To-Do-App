@@ -782,40 +782,67 @@ const registerEvents = () => {
   }
 };
 
+// Helper: fetch with timeout using AbortController
+const fetchWithTimeout = (url, options = {}, timeoutMs = 8000) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer));
+};
+
 // Boot App
 const initApp = async () => {
   const overlay = document.getElementById('app-loading-overlay');
+  const overlayText = overlay ? overlay.querySelector('.overlay-logo-text') : null;
 
-  // ── Step 1: Auth Check ──────────────────────────────────────────────────────
-  // The overlay is already covering the screen from the moment the page loads,
-  // so there is no flicker regardless of how long the fetch takes.
+  // Show "waking up" hint after 3s (Render Cold Start can take 30-60s on free tier)
+  const wakeUpTimer = setTimeout(() => {
+    if (overlayText) {
+      overlayText.textContent = 'กำลังเชื่อมต่อเซิร์ฟเวอร์...';
+      overlayText.style.fontSize = '0.85rem';
+      overlayText.style.color = 'rgba(255,255,255,0.45)';
+    }
+  }, 3000);
+
+  // ── Step 1: Auth Check (with 8s timeout) ──────────────────────────────────
   try {
-    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    const res = await fetchWithTimeout(
+      '/api/auth/me',
+      { credentials: 'include' },
+      8000  // 8 วินาที → ถ้าเกินนี้ถือว่า session หมดหรือ server ไม่พร้อม
+    );
+
+    clearTimeout(wakeUpTimer);
+
     if (!res.ok) {
       window.location.replace('/login.html');
-      return; // stop execution
+      return;
     }
     const user = await res.json();
     console.log('Authenticated as:', user.username);
   } catch (err) {
+    clearTimeout(wakeUpTimer);
+    // AbortError = timeout, TypeError = network error
+    // ทั้งสองกรณีให้ redirect ไป login
+    console.warn('Auth check failed or timed out:', err.name, err.message);
     window.location.replace('/login.html');
     return;
   }
 
-  // ── Step 2: Apply theme from cache (already done synchronously in HTML,
-  //            but sync server value now to avoid mismatch on next load)
+  // ── Step 2: Apply theme (sync from server, cache already applied in HTML) ──
   await initTheme();
 
-  // ── Step 3: Boot UI ─────────────────────────────────────────────────────────
+  // ── Step 3: Boot UI ────────────────────────────────────────────────────────
   initMobileSidebar();
   registerEvents();
   await renderTasks();
 
-  // ── Step 4: Remove overlay with a smooth fade ───────────────────────────────
-  // Adding the 'hidden' class triggers the CSS transition (opacity 0 + visibility hidden).
+  // ── Step 4: Fade out overlay after content is fully rendered ───────────────
   if (overlay) {
     overlay.classList.add('hidden');
   }
 };
 
 document.addEventListener('DOMContentLoaded', initApp);
+
