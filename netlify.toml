@@ -1,3 +1,8 @@
+# ============================================================
+# API Proxy Rules — forward all API calls to Render backend
+# force=true ensures these rules take priority over static files
+# ============================================================
+
 [[redirects]]
   from = "/api/*"
   to = "https://to-do-app-pc0y.onrender.com/api/:splat"
@@ -34,6 +39,11 @@
   status = 200
   force = true
 
+# ============================================================
+# SPA Fallback — must be LAST
+# Serves index.html for all other routes (client-side routing)
+# login.html is a real static file so it will be served before this rule
+# ============================================================
 [[redirects]]
   from = "/*"
   to = "/index.html"

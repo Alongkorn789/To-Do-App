@@ -784,16 +784,37 @@ const registerEvents = () => {
 
 // Boot App
 const initApp = async () => {
-  await storage.init();
+  const overlay = document.getElementById('app-loading-overlay');
+
+  // ── Step 1: Auth Check ──────────────────────────────────────────────────────
+  // The overlay is already covering the screen from the moment the page loads,
+  // so there is no flicker regardless of how long the fetch takes.
+  try {
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    if (!res.ok) {
+      window.location.replace('/login.html');
+      return; // stop execution
+    }
+    const user = await res.json();
+    console.log('Authenticated as:', user.username);
+  } catch (err) {
+    window.location.replace('/login.html');
+    return;
+  }
+
+  // ── Step 2: Apply theme from cache (already done synchronously in HTML,
+  //            but sync server value now to avoid mismatch on next load)
   await initTheme();
+
+  // ── Step 3: Boot UI ─────────────────────────────────────────────────────────
   initMobileSidebar();
   registerEvents();
   await renderTasks();
 
-  // Make the app container visible after everything is fully loaded and rendered
-  const container = document.querySelector('.app-container');
-  if (container) {
-    container.style.visibility = 'visible';
+  // ── Step 4: Remove overlay with a smooth fade ───────────────────────────────
+  // Adding the 'hidden' class triggers the CSS transition (opacity 0 + visibility hidden).
+  if (overlay) {
+    overlay.classList.add('hidden');
   }
 };
 

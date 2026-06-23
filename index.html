@@ -7,25 +7,57 @@
   <meta name="description" content="จัดการงานของคุณอย่างมีประสิทธิภาพด้วย TaskFlow แอปพลิเคชัน To-Do สไตล์ Modern Minimalist">
   
   <style>
-    /* Hide app content by default to prevent flicker during session check */
-    .app-container {
+    /* ============================================================
+       ANTI-FLICKER: Full-page loading overlay
+       Covers everything until JS finishes auth check + render.
+       Theme-aware: inherits --bg-primary color.
+       ============================================================ */
+    #app-loading-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      background: #0f0f1a; /* default dark — overridden by inline style below */
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+    #app-loading-overlay.hidden {
+      opacity: 0;
       visibility: hidden;
+      pointer-events: none;
+    }
+    .overlay-spinner {
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(255,255,255,0.12);
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: overlaySpinAnim 0.8s linear infinite;
+    }
+    .overlay-logo-text {
+      font-family: 'Outfit', 'Inter', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.7);
+      letter-spacing: 0.05em;
+    }
+    body.light-mode #app-loading-overlay {
+      background: #f8f7ff;
+    }
+    body.light-mode .overlay-spinner {
+      border-color: rgba(0,0,0,0.1);
+      border-top-color: #7c3aed;
+    }
+    body.light-mode .overlay-logo-text {
+      color: rgba(0,0,0,0.5);
+    }
+    @keyframes overlaySpinAnim {
+      to { transform: rotate(360deg); }
     }
   </style>
-  <!-- Auth Session Check Script (Blocking) -->
-  <script>
-    (async function() {
-      try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (res.ok) {
-        } else {
-          window.location.replace('/login.html');
-        }
-      } catch (err) {
-        window.location.replace('/login.html');
-      }
-    })();
-  </script>
   
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,7 +72,7 @@
 </head>
 <body>
   <script>
-    // Apply cached theme synchronously before first paint to prevent dark/light flash
+    // 1. Apply cached theme SYNCHRONOUSLY before first paint
     (function() {
       const cachedTheme = localStorage.getItem('theme') || 'dark';
       if (cachedTheme === 'light') {
@@ -48,6 +80,11 @@
       }
     })();
   </script>
+  <!-- Full-page Loading Overlay: shown immediately, removed after auth+render -->
+  <div id="app-loading-overlay" role="status" aria-label="กำลังโหลด...">
+    <div class="overlay-spinner"></div>
+    <span class="overlay-logo-text">TaskFlow</span>
+  </div>
   <div class="app-container">
     <!-- Sidebar Navigation -->
     <aside class="sidebar" id="sidebar">
