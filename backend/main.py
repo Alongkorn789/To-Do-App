@@ -323,41 +323,40 @@ def get_me(user_id: str = Depends(get_current_user)):
     }
 
 # ==========================================================================
-# TASKS API ENDPOINTS
+# TASKS API ENDPOINTS  (prefix: /api/tasks)
 # ==========================================================================
 
-@app.get("/tasks")
+@app.get("/api/tasks")
 def get_tasks(user_id: str = Depends(get_current_user)):
     tasks = db.tasks.find({"userId": user_id})
     return [task_helper(t) for t in tasks]
 
-@app.post("/tasks")
+@app.post("/api/tasks")
 def create_task(task: dict, user_id: str = Depends(get_current_user)):
     if "id" in task:
         task.pop("id")
-    # Set created time if not provided
     if not task.get("createdAt"):
         task["createdAt"] = datetime.now().isoformat()
     task["completed"] = task.get("completed", False)
     task["userId"] = user_id
-    
+
     result = db.tasks.insert_one(task)
     inserted_task = db.tasks.find_one({"_id": result.inserted_id, "userId": user_id})
     return task_helper(inserted_task)
 
-@app.put("/tasks/{id}")
+@app.put("/api/tasks/{id}")
 def update_task(id: str, task_data: dict, user_id: str = Depends(get_current_user)):
     if "id" in task_data:
         task_data.pop("id")
-    
+
     res = db.tasks.update_one({"_id": parse_id(id), "userId": user_id}, {"$set": task_data})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Task not found or unauthorized")
-        
+
     updated = db.tasks.find_one({"_id": parse_id(id), "userId": user_id})
     return task_helper(updated)
 
-@app.delete("/tasks/{id}")
+@app.delete("/api/tasks/{id}")
 def delete_task(id: str, user_id: str = Depends(get_current_user)):
     res = db.tasks.delete_one({"_id": parse_id(id), "userId": user_id})
     if res.deleted_count == 0:
@@ -365,15 +364,15 @@ def delete_task(id: str, user_id: str = Depends(get_current_user)):
     return {"status": "success", "message": f"Task {id} deleted successfully"}
 
 # ==========================================================================
-# CATEGORIES API ENDPOINTS
+# CATEGORIES API ENDPOINTS  (prefix: /api/categories)
 # ==========================================================================
 
-@app.get("/categories")
+@app.get("/api/categories")
 def get_categories(user_id: str = Depends(get_current_user)):
     categories = db.categories.find({"userId": user_id})
     return [category_helper(c) for c in categories]
 
-@app.post("/categories")
+@app.post("/api/categories")
 def create_category(cat: dict, user_id: str = Depends(get_current_user)):
     if "id" in cat:
         cat.pop("id")
@@ -382,27 +381,27 @@ def create_category(cat: dict, user_id: str = Depends(get_current_user)):
     inserted = db.categories.find_one({"_id": result.inserted_id, "userId": user_id})
     return category_helper(inserted)
 
-@app.delete("/categories/{id}")
+@app.delete("/api/categories/{id}")
 def delete_category(id: str, user_id: str = Depends(get_current_user)):
     res = db.categories.delete_one({"_id": parse_id(id), "userId": user_id})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Category not found or unauthorized")
-    # Clean up associated tasks to have no category
+    # Clean up associated tasks
     db.tasks.update_many({"categoryId": id, "userId": user_id}, {"$set": {"categoryId": ""}})
     return {"status": "success", "message": f"Category {id} deleted successfully"}
 
 # ==========================================================================
-# THEME CONFIG ENDPOINTS
+# THEME CONFIG ENDPOINTS  (prefix: /api/theme)
 # ==========================================================================
 
-@app.get("/theme")
+@app.get("/api/theme")
 def get_theme(user_id: str = Depends(get_current_user)):
     theme_doc = db.settings.find_one({"key": "theme", "userId": user_id})
     if theme_doc:
         return {"theme": theme_doc["value"]}
     return {"theme": "dark"}
 
-@app.put("/theme")
+@app.put("/api/theme")
 def update_theme(data: dict, user_id: str = Depends(get_current_user)):
     theme = data.get("theme", "dark")
     db.settings.update_one(

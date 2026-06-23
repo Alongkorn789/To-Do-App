@@ -116,7 +116,7 @@ export const storage = {
   // TASKS API
   async getTasks() {
     try {
-      const res = await request('/tasks');
+      const res = await request('/api/tasks');
       if (!res.ok) throw new Error("Failed to fetch tasks");
       return await safeJSON(res);
     } catch (err) {
@@ -129,12 +129,12 @@ export const storage = {
     try {
       let res;
       if (taskData.id) {
-        res = await request(`/tasks/${taskData.id}`, {
+        res = await request(`/api/tasks/${taskData.id}`, {
           method: 'PUT',
           body: JSON.stringify(taskData)
         });
       } else {
-        res = await request('/tasks', {
+        res = await request('/api/tasks', {
           method: 'POST',
           body: JSON.stringify(taskData)
         });
@@ -171,7 +171,7 @@ export const storage = {
 
   async deleteTask(id) {
     try {
-      const res = await request(`/tasks/${id}`, { method: 'DELETE' });
+      const res = await request(`/api/tasks/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Failed to delete task");
       return await safeJSON(res);
     } catch (err) {
@@ -202,7 +202,7 @@ export const storage = {
   // CATEGORIES API
   async getCategories() {
     try {
-      const res = await request('/categories');
+      const res = await request('/api/categories');
       if (!res.ok) throw new Error("Failed to fetch categories");
       return await safeJSON(res);
     } catch (err) {
@@ -213,7 +213,7 @@ export const storage = {
 
   async saveCategory(categoryData) {
     try {
-      const res = await request('/categories', {
+      const res = await request('/api/categories', {
         method: 'POST',
         body: JSON.stringify(categoryData)
       });
@@ -228,7 +228,7 @@ export const storage = {
 
   async deleteCategory(id) {
     try {
-      const res = await request(`/categories/${id}`, { method: 'DELETE' });
+      const res = await request(`/api/categories/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Failed to delete category");
       return await safeJSON(res);
     } catch (err) {
@@ -241,19 +241,19 @@ export const storage = {
   // THEME API
   async getTheme() {
     try {
-      const res = await request('/theme');
+      const res = await request('/api/theme');
       if (!res.ok) throw new Error("Failed to fetch theme");
       const data = await safeJSON(res);
       return data.theme;
     } catch (err) {
       console.error("Error in getTheme:", err);
-      return 'dark'; // fallback to dark theme
+      return 'dark';
     }
   },
 
   async setTheme(theme) {
     try {
-      const res = await request('/theme', {
+      const res = await request('/api/theme', {
         method: 'PUT',
         body: JSON.stringify({ theme })
       });

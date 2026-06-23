@@ -1,6 +1,6 @@
 # ============================================================
-# API Proxy Rules — forward all API calls to Render backend
-# force=true ensures these rules take priority over static files
+# API Proxy — forward ALL /api/* calls to Render backend
+# ONE rule handles everything: tasks, categories, theme, auth
 # ============================================================
 
 [[redirects]]
@@ -9,40 +9,9 @@
   status = 200
   force = true
 
-[[redirects]]
-  from = "/tasks/*"
-  to = "https://to-do-app-pc0y.onrender.com/tasks/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/tasks"
-  to = "https://to-do-app-pc0y.onrender.com/tasks"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/categories/*"
-  to = "https://to-do-app-pc0y.onrender.com/categories/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/categories"
-  to = "https://to-do-app-pc0y.onrender.com/categories"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/theme"
-  to = "https://to-do-app-pc0y.onrender.com/theme"
-  status = 200
-  force = true
-
 # ============================================================
 # SPA Fallback — must be LAST
-# Serves index.html for all other routes (client-side routing)
-# login.html is a real static file so it will be served before this rule
+# login.html is a real static file → served directly before this rule
 # ============================================================
 [[redirects]]
   from = "/*"
