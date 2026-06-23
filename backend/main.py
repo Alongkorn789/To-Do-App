@@ -175,7 +175,10 @@ app = FastAPI(
     title="TaskFlow Backend API",
     description="Backend API for TaskFlow Task Manager / To-Do App",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    # ป้องกัน 307 Redirect จาก trailing slash ที่ทำให้ Auth Cookie หาย
+    # ตัวอย่าง: GET /tasks → ไม่ redirect ไป /tasks/ อีกต่อไป
+    redirect_slashes=False
 )
 
 # Configure CORS Middleware

@@ -2,6 +2,18 @@
    TaskFlow Storage Module - Integrated with MongoDB & FastAPI
    ========================================================================== */
 
+// Helper: ตรวจ Content-Type ก่อนแปลง JSON
+// ป้องกัน crash "Unexpected token '<'" เมื่อ server ส่ง HTML error page (503)
+async function safeJSON(res) {
+  const contentType = res.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    // Server ส่ง HTML หรือ text กลับมา (เช่น Render/Netlify error page)
+    const text = await res.text().catch(() => '');
+    throw new Error(`Server ไม่พร้อมให้บริการ (HTTP ${res.status}). กรุณาลองใหม่อีกครั้ง`);
+  }
+  return res.json();
+}
+
 // Helper function to handle fetch calls with credentials and status checks
 async function request(url, options = {}) {
   options.credentials = 'include';
@@ -28,14 +40,12 @@ async function request(url, options = {}) {
 }
 
 export const storage = {
-  // Initial handshake with API
+  // Initial handshake with API (ไม่ใช้แล้ว — auth check ทำใน app.js แทน)
   async init() {
     try {
       const res = await request('/api/auth/me');
-      if (!res.ok) {
-        throw new Error(`Server returned status: ${res.status}`);
-      }
-      const user = await res.json();
+      if (!res.ok) throw new Error(`Server returned status: ${res.status}`);
+      const user = await safeJSON(res);
       console.log('Backend connected. Authenticated as:', user.username);
       return user;
     } catch (err) {
@@ -50,10 +60,16 @@ export const storage = {
       body: JSON.stringify({ username, password })
     });
     if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.detail || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      // ใช้ safeJSON เพื่อป้องกัน crash กรณี server ส่ง HTML error (503)
+      try {
+        const errData = await safeJSON(res);
+        throw new Error(errData.detail || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      } catch (parseErr) {
+        // ถ้า parse ไม่ได้ → ใช้ข้อความ error จาก safeJSON
+        throw parseErr;
+      }
     }
-    return await res.json();
+    return await safeJSON(res);
   },
 
   async register(username, email, password) {
@@ -62,17 +78,19 @@ export const storage = {
       body: JSON.stringify({ username, email, password })
     });
     if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.detail || 'ลงทะเบียนไม่สำเร็จ');
+      try {
+        const errData = await safeJSON(res);
+        throw new Error(errData.detail || 'ลงทะเบียนไม่สำเร็จ');
+      } catch (parseErr) {
+        throw parseErr;
+      }
     }
-    return await res.json();
+    return await safeJSON(res);
   },
 
   async logout() {
     try {
-      const res = await request('/api/auth/logout', {
-        method: 'POST'
-      });
+      const res = await request('/api/auth/logout', { method: 'POST' });
       return res.ok;
     } catch (err) {
       console.error("Error in logout:", err);
@@ -84,7 +102,7 @@ export const storage = {
     try {
       const res = await fetch('/api/auth/me', { credentials: 'include' });
       if (!res.ok) return null;
-      return await res.json();
+      return await safeJSON(res);
     } catch (err) {
       return null;
     }
@@ -95,7 +113,7 @@ export const storage = {
     try {
       const res = await request('/tasks');
       if (!res.ok) throw new Error("Failed to fetch tasks");
-      return await res.json();
+      return await safeJSON(res);
     } catch (err) {
       console.error("Error in getTasks:", err);
       return [];
@@ -106,21 +124,18 @@ export const storage = {
     try {
       let res;
       if (taskData.id) {
-        // Edit existing task
         res = await request(`/tasks/${taskData.id}`, {
           method: 'PUT',
           body: JSON.stringify(taskData)
         });
       } else {
-        // Create new task
         res = await request('/tasks', {
           method: 'POST',
           body: JSON.stringify(taskData)
         });
       }
-
       if (!res.ok) throw new Error("Failed to save task");
-      return await res.json();
+      return await safeJSON(res);
     } catch (err) {
       console.error("Error in saveTask:", err);
       alert('ไม่สามารถบันทึกงานได้ เนื่องจากข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
@@ -136,7 +151,7 @@ export const storage = {
         body: JSON.stringify({ text })
       });
       if (!res.ok) throw new Error("Failed to process smart add via AI");
-      return await res.json();
+      return await safeJSON(res);
     } catch (err) {
       console.error("Error in smartAddRequest:", err);
       throw err;
@@ -145,11 +160,9 @@ export const storage = {
 
   async deleteTask(id) {
     try {
-      const res = await request(`/tasks/${id}`, {
-        method: 'DELETE'
-      });
+      const res = await request(`/tasks/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Failed to delete task");
-      return await res.json();
+      return await safeJSON(res);
     } catch (err) {
       console.error("Error in deleteTask:", err);
       alert('ไม่สามารถลบงานได้ เนื่องจากข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
@@ -180,7 +193,7 @@ export const storage = {
     try {
       const res = await request('/categories');
       if (!res.ok) throw new Error("Failed to fetch categories");
-      return await res.json();
+      return await safeJSON(res);
     } catch (err) {
       console.error("Error in getCategories:", err);
       return [];
@@ -194,7 +207,7 @@ export const storage = {
         body: JSON.stringify(categoryData)
       });
       if (!res.ok) throw new Error("Failed to save category");
-      return await res.json();
+      return await safeJSON(res);
     } catch (err) {
       console.error("Error in saveCategory:", err);
       alert('ไม่สามารถเพิ่มหมวดหมู่ได้ เนื่องจากข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
@@ -204,11 +217,9 @@ export const storage = {
 
   async deleteCategory(id) {
     try {
-      const res = await request(`/categories/${id}`, {
-        method: 'DELETE'
-      });
+      const res = await request(`/categories/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Failed to delete category");
-      return await res.json();
+      return await safeJSON(res);
     } catch (err) {
       console.error("Error in deleteCategory:", err);
       alert('ไม่สามารถลบหมวดหมู่ได้ เนื่องจากข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
@@ -221,11 +232,11 @@ export const storage = {
     try {
       const res = await request('/theme');
       if (!res.ok) throw new Error("Failed to fetch theme");
-      const data = await res.json();
+      const data = await safeJSON(res);
       return data.theme;
     } catch (err) {
       console.error("Error in getTheme:", err);
-      return 'dark';
+      return 'dark'; // fallback to dark theme
     }
   },
 
@@ -236,9 +247,10 @@ export const storage = {
         body: JSON.stringify({ theme })
       });
       if (!res.ok) throw new Error("Failed to save theme");
-      return await res.json();
+      return await safeJSON(res);
     } catch (err) {
       console.error("Error in setTheme:", err);
     }
   }
 };
+
