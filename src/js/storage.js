@@ -14,8 +14,11 @@ async function request(url, options = {}) {
 
   const res = await fetch(url, options);
 
+  // 401 interceptor — redirect ไป login แต่ห้ามวนซ้ำถ้าอยู่ที่ login อยู่แล้ว
   if (res.status === 401) {
-    if (!window.location.pathname.endsWith('login.html')) {
+    const path = window.location.pathname;
+    const isOnLogin = path.endsWith('/login.html') || path === '/login';
+    if (!isOnLogin) {
       window.location.replace('/login.html');
     }
     throw new Error('Unauthorized');

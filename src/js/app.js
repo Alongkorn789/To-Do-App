@@ -786,17 +786,37 @@ const registerEvents = () => {
 const fetchWithTimeout = (url, options = {}, timeoutMs = 8000) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-
   return fetch(url, { ...options, signal: controller.signal })
     .finally(() => clearTimeout(timer));
 };
 
+// Helper: ซ่อน overlay แล้ว redirect ไป login
+// ── ป้องกัน Infinite Loop: ตรวจก่อนว่ายังไม่อยู่ที่ login.html แล้วค่อย redirect
+const redirectToLogin = (overlay) => {
+  // ซ่อน overlay ก่อนเสมอ (ป้องกันหน้าจอดำค้าง)
+  if (overlay) {
+    overlay.style.transition = 'none'; // ไม่ต้อง fade — redirect ทันที
+    overlay.classList.add('hidden');
+  }
+  // guard: ห้าม redirect ถ้าอยู่ที่ login.html อยู่แล้ว (ตัดลูปนรก)
+  const path = window.location.pathname;
+  if (!path.endsWith('/login.html') && path !== '/login') {
+    window.location.replace('/login.html');
+  }
+};
+
 // Boot App
 const initApp = async () => {
+  // ถ้า script นี้รันบนหน้า login.html (กรณี Netlify ยังไม่รู้จัก login.html)
+  // ให้หยุดทำงานทันที — ไม่ควรรัน initApp บน login page
+  if (window.location.pathname.endsWith('/login.html')) {
+    return;
+  }
+
   const overlay = document.getElementById('app-loading-overlay');
   const overlayText = overlay ? overlay.querySelector('.overlay-logo-text') : null;
 
-  // Show "waking up" hint after 3s (Render Cold Start can take 30-60s on free tier)
+  // Show "waking up" hint หลัง 3 วิ (สำหรับ Render Cold Start)
   const wakeUpTimer = setTimeout(() => {
     if (overlayText) {
       overlayText.textContent = 'กำลังเชื่อมต่อเซิร์ฟเวอร์...';
@@ -805,40 +825,43 @@ const initApp = async () => {
     }
   }, 3000);
 
-  // ── Step 1: Auth Check (with 8s timeout) ──────────────────────────────────
+  // ── Step 1: Auth Check (timeout 8 วิ) ─────────────────────────────────────
   try {
     const res = await fetchWithTimeout(
       '/api/auth/me',
       { credentials: 'include' },
-      8000  // 8 วินาที → ถ้าเกินนี้ถือว่า session หมดหรือ server ไม่พร้อม
+      8000
     );
 
     clearTimeout(wakeUpTimer);
 
     if (!res.ok) {
-      window.location.replace('/login.html');
+      // 401 = ไม่ได้ login, 503 = server down
+      redirectToLogin(overlay);
       return;
     }
+
     const user = await res.json();
     console.log('Authenticated as:', user.username);
+
   } catch (err) {
+    // AbortError = timeout หลัง 8 วิ
+    // TypeError  = network error (server ล่ม, CORS, etc.)
     clearTimeout(wakeUpTimer);
-    // AbortError = timeout, TypeError = network error
-    // ทั้งสองกรณีให้ redirect ไป login
-    console.warn('Auth check failed or timed out:', err.name, err.message);
-    window.location.replace('/login.html');
+    console.warn('Auth check failed:', err.name, '-', err.message);
+    redirectToLogin(overlay);
     return;
   }
 
-  // ── Step 2: Apply theme (sync from server, cache already applied in HTML) ──
+  // ── Step 2: Sync theme from server ────────────────────────────────────────
   await initTheme();
 
-  // ── Step 3: Boot UI ────────────────────────────────────────────────────────
+  // ── Step 3: Boot UI ───────────────────────────────────────────────────────
   initMobileSidebar();
   registerEvents();
   await renderTasks();
 
-  // ── Step 4: Fade out overlay after content is fully rendered ───────────────
+  // ── Step 4: Fade out overlay หลัง render เสร็จ ────────────────────────────
   if (overlay) {
     overlay.classList.add('hidden');
   }
